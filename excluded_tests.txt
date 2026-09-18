@@ -147,34 +147,9 @@ keras/src/ops/image_test.py::ImageOpsDtypeTest::test_scale_and_translate_float32
 # `rgb_to_hsv`
 keras/src/layers/preprocessing/data_layer_test.py::DataLayerTest::test_grain_compatibility
 keras/src/layers/preprocessing/data_layer_test.py::DataLayerTest::test_layer
-keras/src/ops/image_test.py::ImageOpsBehaviorTests::test_rgb_to_hsv_invalid_dtype
-keras/src/ops/image_test.py::ImageOpsBehaviorTests::test_rgb_to_hsv_invalid_rank_2
-keras/src/ops/image_test.py::ImageOpsBehaviorTests::test_rgb_to_hsv_invalid_rank_5
-keras/src/ops/image_test.py::ImageOpsCorrectnessTest::test_rgb_to_hsv
-keras/src/ops/image_test.py::ImageOpsDtypeTest::test_rgb_to_hsv_bfloat16
-keras/src/ops/image_test.py::ImageOpsDtypeTest::test_rgb_to_hsv_float16
-keras/src/ops/image_test.py::ImageOpsDtypeTest::test_rgb_to_hsv_float32
-keras/src/layers/preprocessing/image_preprocessing/random_color_jitter_test.py::RandomColorJitterTest::test_hue_only
+# RandomColorJitter's test_layer runs its brightness branch, whose
+# float16 add kernel is missing on the Paddle CPU backend.
 keras/src/layers/preprocessing/image_preprocessing/random_color_jitter_test.py::RandomColorJitterTest::test_layer
-keras/src/layers/preprocessing/image_preprocessing/random_color_jitter_test.py::RandomColorJitterTest::test_saturation_only
-keras/src/layers/preprocessing/image_preprocessing/random_hue_test.py::RandomHueTest::test_layer
-keras/src/layers/preprocessing/image_preprocessing/random_hue_test.py::RandomHueTest::test_random_hue_randomness
-keras/src/layers/preprocessing/image_preprocessing/random_hue_test.py::RandomHueTest::test_random_hue_value_range_0_to_1
-keras/src/layers/preprocessing/image_preprocessing/random_hue_test.py::RandomHueTest::test_random_hue_value_range_0_to_255
-keras/src/layers/preprocessing/image_preprocessing/random_saturation_test.py::RandomSaturationTest::test_layer
-keras/src/layers/preprocessing/image_preprocessing/random_saturation_test.py::RandomSaturationTest::test_random_saturation_full_grayscale
-keras/src/layers/preprocessing/image_preprocessing/random_saturation_test.py::RandomSaturationTest::test_random_saturation_full_saturation
-keras/src/layers/preprocessing/image_preprocessing/random_saturation_test.py::RandomSaturationTest::test_random_saturation_randomness
-keras/src/layers/preprocessing/image_preprocessing/random_saturation_test.py::RandomSaturationTest::test_random_saturation_value_range
-
-# `hsv_to_rgb`
-keras/src/ops/image_test.py::ImageOpsBehaviorTests::test_hsv_to_rgb_invalid_dtype
-keras/src/ops/image_test.py::ImageOpsBehaviorTests::test_hsv_to_rgb_invalid_rank_2
-keras/src/ops/image_test.py::ImageOpsBehaviorTests::test_hsv_to_rgb_invalid_rank_5
-keras/src/ops/image_test.py::ImageOpsCorrectnessTest::test_hsv_to_rgb
-keras/src/ops/image_test.py::ImageOpsDtypeTest::test_hsv_to_rgb_bfloat16
-keras/src/ops/image_test.py::ImageOpsDtypeTest::test_hsv_to_rgb_float16
-keras/src/ops/image_test.py::ImageOpsDtypeTest::test_hsv_to_rgb_float32
 
 # `perspective_transform`
 keras/src/ops/image_test.py::ImageOpsBehaviorTests::test_perspective_transform_invalid_images_rank

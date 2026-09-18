@@ -7,6 +7,20 @@ from keras.src.backend.config import standardize_data_format
 from keras_paddle.src.ops.core import convert_to_tensor
 from keras_paddle.src.ops.core import to_paddle_dtype
 
+FLOAT_DTYPES = (
+    "float8_e4m3fn",
+    "float8_e5m2",
+    "float16",
+    "bfloat16",
+    "float32",
+    "float64",
+)
+
+
+def _is_float_dtype(dtype):
+    return standardize_dtype(dtype) in FLOAT_DTYPES
+
+
 RESIZE_INTERPOLATIONS = ("bilinear", "nearest", "bicubic")
 UNSUPPORTED_INTERPOLATIONS = (
     "lanczos3",
@@ -238,15 +252,104 @@ def map_coordinates(
 
 
 def rgb_to_hsv(images, data_format=None):
-    raise NotImplementedError(
-        "`rgb_to_hsv` is not supported with paddle backend"
-    )
+    # Ref: dm_pix
+    data_format = standardize_data_format(data_format)
+    images = convert_to_tensor(images)
+    dtype = standardize_dtype(images.dtype)
+    channels_axis = -1 if data_format == "channels_last" else -3
+    if len(images.shape) not in (3, 4):
+        raise ValueError(
+            "Invalid images rank: expected rank 3 (single image) "
+            "or rank 4 (batch of images). Received input with shape: "
+            f"images.shape={images.shape}"
+        )
+    if not _is_float_dtype(dtype):
+        raise ValueError(
+            "Invalid images dtype: expected float dtype. "
+            f"Received: images.dtype={dtype}"
+        )
+    # Paddle CPU has incomplete kernel coverage for these dtypes, so
+    # compute in float32 and cast back to the original dtype at the end.
+    compute_dtype = dtype if dtype not in ("float16", "bfloat16") else "float32"
+    if dtype != compute_dtype:
+        images = images.cast("float32")
+    if dtype.startswith("float8"):
+        eps = np.finfo("float32").eps
+    else:
+        eps = paddle.finfo(to_paddle_dtype(dtype)).eps
+    images = paddle.where(paddle.abs(images) < eps, 0.0, images)
+    red, green, blue = paddle.split(images, 3, channels_axis)
+    red = paddle.squeeze(red, channels_axis)
+    green = paddle.squeeze(green, channels_axis)
+    blue = paddle.squeeze(blue, channels_axis)
+
+    def rgb_planes_to_hsv_planes(r, g, b):
+        value = paddle.maximum(paddle.maximum(r, g), b)
+        minimum = paddle.minimum(paddle.minimum(r, g), b)
+        range_ = value - minimum
+
+        safe_value = paddle.where(value > 0, value, 1.0)
+        safe_range = paddle.where(range_ > 0, range_, 1.0)
+
+        saturation = paddle.where(value > 0, range_ / safe_value, 0.0)
+        norm = 1.0 / (6.0 * safe_range)
+
+        hue = paddle.where(
+            value == g,
+            norm * (b - r) + 2.0 / 6.0,
+            norm * (r - g) + 4.0 / 6.0,
+        )
+        hue = paddle.where(value == r, norm * (g - b), hue)
+        hue = paddle.where(range_ > 0, hue, 0.0) + (hue < 0.0).cast(hue.dtype)
+        return hue, saturation, value
+
+    hue, saturation, value = rgb_planes_to_hsv_planes(red, green, blue)
+    images = paddle.stack([hue, saturation, value], axis=channels_axis)
+    return images.cast(to_paddle_dtype(dtype))
 
 
 def hsv_to_rgb(images, data_format=None):
-    raise NotImplementedError(
-        "`hsv_to_rgb` is not supported with paddle backend"
-    )
+    # Ref: dm_pix
+    data_format = standardize_data_format(data_format)
+    images = convert_to_tensor(images)
+    dtype = standardize_dtype(images.dtype)
+    channels_axis = -1 if data_format == "channels_last" else -3
+    if len(images.shape) not in (3, 4):
+        raise ValueError(
+            "Invalid images rank: expected rank 3 (single image) "
+            "or rank 4 (batch of images). Received input with shape: "
+            f"images.shape={images.shape}"
+        )
+    if not _is_float_dtype(dtype):
+        raise ValueError(
+            "Invalid images dtype: expected float dtype. "
+            f"Received: images.dtype={dtype}"
+        )
+    # Paddle CPU has incomplete kernel coverage for these dtypes, so
+    # compute in float32 and cast back to the original dtype at the end.
+    compute_dtype = dtype if dtype not in ("float16", "bfloat16") else "float32"
+    if dtype != compute_dtype:
+        images = images.cast("float32")
+    hue, saturation, value = paddle.split(images, 3, channels_axis)
+    hue = paddle.squeeze(hue, channels_axis)
+    saturation = paddle.squeeze(saturation, channels_axis)
+    value = paddle.squeeze(value, channels_axis)
+
+    def hsv_planes_to_rgb_planes(hue, saturation, value):
+        dh = (hue % 1.0) * 6.0
+        dr = paddle.clip(paddle.abs(dh - 3.0) - 1.0, 0.0, 1.0)
+        dg = paddle.clip(2.0 - paddle.abs(dh - 2.0), 0.0, 1.0)
+        db = paddle.clip(2.0 - paddle.abs(dh - 4.0), 0.0, 1.0)
+        one_minus_s = 1.0 - saturation
+
+        red = value * (one_minus_s + saturation * dr)
+        green = value * (one_minus_s + saturation * dg)
+        blue = value * (one_minus_s + saturation * db)
+        return red, green, blue
+
+    red, green, blue = hsv_planes_to_rgb_planes(hue, saturation, value)
+    images = paddle.stack([red, green, blue], axis=channels_axis)
+    return images.cast(to_paddle_dtype(dtype))
 
 
 def perspective_transform(
