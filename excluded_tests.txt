@@ -132,15 +132,6 @@ keras/src/layers/preprocessing/image_preprocessing/resizing_test.py::ResizingTes
 keras/src/layers/reshaping/up_sampling2d_test.py::UpSampling2dTest::test_upsampling_2d_lanczos_interpolation_methods
 
 ########################################################################
-# Other ops that are not implemented by the paddle backend.
-# The `beam_search` strategy of `ctc_decode`.
-########################################################################
-keras/src/ops/nn_test.py::NNOpsCorrectnessTest::test_ctc_decode
-keras/src/ops/nn_test.py::NNOpsDtypeTest::test_ctc_decode_bfloat16
-keras/src/ops/nn_test.py::NNOpsDtypeTest::test_ctc_decode_float16
-keras/src/ops/nn_test.py::NNOpsDtypeTest::test_ctc_decode_float32
-
-########################################################################
 # Missing float16 CPU kernels.
 # Paddle's CPU build does not register a float16 kernel for `add`,
 # `subtract` and `multiply`, which Keras applies directly to the
