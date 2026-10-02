@@ -1259,12 +1259,11 @@ def dot_product_attention(
 
     if attn_logits_soft_cap is not None:
         scale = scale or (1.0 / (key.shape[-1] ** 0.5))
-        attn_scores = paddle.matmul(
-            query * scale, key, transpose_y=True
+        attn_scores = paddle.matmul(query * scale, key, transpose_y=True)
+        attn_scores = (
+            paddle.tanh(attn_scores / attn_logits_soft_cap)
+            * attn_logits_soft_cap
         )
-        attn_scores = paddle.tanh(
-            attn_scores / attn_logits_soft_cap
-        ) * attn_logits_soft_cap
         if bias is not None:
             attn_scores = attn_scores + bias
         if is_causal:
@@ -1273,7 +1272,8 @@ def dot_product_attention(
                 paddle.ones((seq_len, seq_len), dtype="bool")
             )
             attn_scores = paddle.where(
-                causal_mask, attn_scores,
+                causal_mask,
+                attn_scores,
                 paddle.to_tensor(-1e9, dtype=attn_scores.dtype),
             )
         attn_weights = F.softmax(attn_scores, axis=-1)
