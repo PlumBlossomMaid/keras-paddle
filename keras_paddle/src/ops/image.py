@@ -42,7 +42,8 @@ AFFINE_TRANSFORM_FILL_MODES = {
     "wrap",
     "mirror",
     "reflect",
-}MAP_COORDINATES_FILL_MODES = {
+}
+MAP_COORDINATES_FILL_MODES = {
     "constant",
     "nearest",
     "wrap",
