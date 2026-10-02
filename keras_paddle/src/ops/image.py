@@ -1231,12 +1231,8 @@ def ssim(
     width = shape[2]
     channels = shape[3]
 
-    kernel = _create_gaussian_kernel(
-        filter_size, filter_sigma, compute_dtype
-    )
-    kernel_nchw = paddle.reshape(
-        kernel, [1, 1, filter_size, filter_size]
-    )
+    kernel = _create_gaussian_kernel(filter_size, filter_sigma, compute_dtype)
+    kernel_nchw = paddle.reshape(kernel, [1, 1, filter_size, filter_size])
 
     c1 = (k1 * max_val) ** 2
     c2 = (k2 * max_val) ** 2
@@ -1260,9 +1256,7 @@ def ssim(
     sigma12 = _dw(image1_ch * image2_ch) - mu1_mu2
 
     numerator = (2.0 * mu1_mu2 + c1) * (2.0 * sigma12 + c2)
-    denominator = (mu1_sq + mu2_sq + c1) * (
-        sigma1_sq + sigma2_sq + c2
-    )
+    denominator = (mu1_sq + mu2_sq + c1) * (sigma1_sq + sigma2_sq + c2)
     ssim_map = numerator / denominator
 
     ssim_val = paddle.mean(ssim_map, axis=[1, 2, 3])
