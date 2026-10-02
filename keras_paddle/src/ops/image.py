@@ -1178,15 +1178,18 @@ def sobel_edges(images, data_format=None):
 
 
 def reconstruct_patches_3d(
-    patches, size, output_size, strides=None, padding="valid",
+    patches,
+    size,
+    output_size,
+    strides=None,
+    padding="valid",
     data_format=None,
 ):
     if isinstance(size, int):
         size = (size, size, size)
     if len(size) != 3:
         raise ValueError(
-            "Invalid `size`. Expected length 3 for 3D. "
-            f"Got: size={size}"
+            f"Invalid `size`. Expected length 3 for 3D. Got: size={size}"
         )
     if len(output_size) != 3:
         raise ValueError(
