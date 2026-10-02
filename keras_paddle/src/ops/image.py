@@ -1299,7 +1299,11 @@ def crop_images(
 
 
 def _extract_patches_2d(
-    images, size, strides=None, dilation_rate=1, padding="valid",
+    images,
+    size,
+    strides=None,
+    dilation_rate=1,
+    padding="valid",
     data_format=None,
 ):
     if isinstance(size, int):
@@ -1320,9 +1324,7 @@ def _extract_patches_2d(
         strides = size
     out_dim = patch_h * patch_w * channels_in
     kernel = paddle.eye(out_dim, dtype=images.dtype)
-    kernel = paddle.reshape(
-        kernel, (patch_h, patch_w, channels_in, out_dim)
-    )
+    kernel = paddle.reshape(kernel, (patch_h, patch_w, channels_in, out_dim))
     _unbatched = False
     if len(images.shape) == 3:
         _unbatched = True
@@ -1344,7 +1346,11 @@ def _extract_patches_2d(
 
 
 def extract_patches(
-    images, size, strides=None, dilation_rate=1, padding="valid",
+    images,
+    size,
+    strides=None,
+    dilation_rate=1,
+    padding="valid",
     data_format=None,
 ):
     if not isinstance(size, int):
@@ -1359,10 +1365,12 @@ def extract_patches(
                 f"2 or 3. Received: size={size} with length {len(size)}"
             )
     if not isinstance(size, int) and len(size) == 3:
-        raise NotImplementedError(
-            "3D patch extraction is not yet supported."
-        )
+        raise NotImplementedError("3D patch extraction is not yet supported.")
     return _extract_patches_2d(
-        images, size, strides, dilation_rate, padding,
+        images,
+        size,
+        strides,
+        dilation_rate,
+        padding,
         data_format=data_format,
     )
