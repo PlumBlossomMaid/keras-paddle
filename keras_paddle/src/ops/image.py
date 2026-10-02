@@ -1178,7 +1178,11 @@ def sobel_edges(images, data_format=None):
 
 
 def extract_patches_3d(
-    volumes, size, strides=None, dilation_rate=1, padding="valid",
+    volumes,
+    size,
+    strides=None,
+    dilation_rate=1,
+    padding="valid",
     data_format=None,
 ):
     if isinstance(size, int):
