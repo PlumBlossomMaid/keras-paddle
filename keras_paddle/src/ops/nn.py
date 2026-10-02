@@ -10,7 +10,9 @@ from keras.src.backend.common.backend_utils import canonicalize_axis
 from keras.src.backend.common.backend_utils import (
     compute_conv_transpose_output_crops_for_torch,
 )
+from keras.src.backend.common.dtypes import result_type
 from keras.src.backend.config import floatx
+from keras_paddle.src.ops.core import cast
 from keras_paddle.src.ops.core import convert_to_tensor
 from keras_paddle.src.ops.core import needs_reduced_precision_upcast
 from keras_paddle.src.ops.core import to_paddle_dtype
