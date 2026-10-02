@@ -798,11 +798,17 @@ def moments(x, axes, keepdims=False, synchronized=False):
         x_sq_sum = paddle.sum(x * x, axis=axes, keepdim=True)
         count = paddle.prod(
             paddle.to_tensor(
-                [x.shape[a] for a in (axes if isinstance(axes, (list, tuple)) else [axes])]
+                [
+                    x.shape[a]
+                    for a in (
+                        axes if isinstance(axes, (list, tuple)) else [axes]
+                    )
+                ]
             )
         ).astype(x.dtype)
         try:
-            from paddle.distributed import all_reduce, ReduceOp
+            from paddle.distributed import ReduceOp
+            from paddle.distributed import all_reduce
 
             all_reduce(x_sum, op=ReduceOp.SUM)
             all_reduce(x_sq_sum, op=ReduceOp.SUM)
@@ -812,8 +818,13 @@ def moments(x, axes, keepdims=False, synchronized=False):
         mean = x_sum / count
         variance = x_sq_sum / count - mean * mean
         if not keepdims:
-            mean = paddle.squeeze(mean, axis=axes if isinstance(axes, (list, tuple)) else [axes])
-            variance = paddle.squeeze(variance, axis=axes if isinstance(axes, (list, tuple)) else [axes])
+            mean = paddle.squeeze(
+                mean, axis=axes if isinstance(axes, (list, tuple)) else [axes]
+            )
+            variance = paddle.squeeze(
+                variance,
+                axis=axes if isinstance(axes, (list, tuple)) else [axes],
+            )
     else:
         mean = paddle.mean(x, axis=axes, keepdim=keepdims)
         variance = paddle.var(x, axis=axes, keepdim=keepdims, unbiased=False)
