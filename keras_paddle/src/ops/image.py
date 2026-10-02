@@ -1220,9 +1220,7 @@ def pad_images(
         ("right_padding", right_padding),
     ]:
         if val is not None and val < 0:
-            raise ValueError(
-                f"{name} must be >= 0. Received: {name}={val}"
-            )
+            raise ValueError(f"{name} must be >= 0. Received: {name}={val}")
 
     pad_width = [
         [top_padding, bottom_padding],
@@ -1285,9 +1283,7 @@ def crop_images(
         ("target_width", target_width),
     ]:
         if val is not None and val < 0:
-            raise ValueError(
-                f"{name} must be >= 0. Received: {name}={val}"
-            )
+            raise ValueError(f"{name} must be >= 0. Received: {name}={val}")
 
     start_indices = [top_cropping, left_cropping]
     end_indices = [
@@ -1308,4 +1304,6 @@ def crop_images(
         start_indices.insert(1 if is_batch else 0, 0)
         end_indices.insert(1 if is_batch else 0, channels)
 
-    return paddle.slice(images, axes=axes, starts=start_indices, ends=end_indices)
+    return paddle.slice(
+        images, axes=axes, starts=start_indices, ends=end_indices
+    )
