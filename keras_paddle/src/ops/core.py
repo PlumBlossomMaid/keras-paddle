@@ -235,6 +235,10 @@ def cast(x, dtype):
     return convert_to_tensor(x, dtype)
 
 
+def dtype(x):
+    return standardize_dtype(x.dtype)
+
+
 def compute_output_spec(fn, *args, **kwargs):
     def has_none_shape(x):
         if isinstance(x, KerasTensor):
