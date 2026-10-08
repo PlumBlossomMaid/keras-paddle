@@ -242,47 +242,180 @@ def grad(f, argnums=0):
     Uses `paddle.grad` for automatic differentiation.
     """
 
-    def grad_fn(*args, **kwargs):
+    def _validate_argnums(argnums, num_args):
         if isinstance(argnums, int):
-            argnums_list = [argnums]
-        else:
-            argnums_list = list(argnums)
+            argnums = (argnums,)
+        elif not isinstance(argnums, (tuple, list)):
+            raise TypeError(
+                f"argnums must be an int or a tuple of ints, "
+                f"received: {argnums}"
+            )
+        normalized = []
+        for idx in argnums:
+            if not isinstance(idx, int):
+                raise TypeError(
+                    f"argnums must be an int or a tuple of ints, "
+                    f"received: {argnums}"
+                )
+            n = idx if idx >= 0 else idx + num_args
+            if n < 0 or n >= num_args:
+                raise ValueError(
+                    f"argnums contains positional argument {idx}, but the "
+                    f"function only received {num_args} positional arguments"
+                )
+            if n in normalized:
+                raise ValueError(
+                    f"argnums must not repeat, received: {argnums}"
+                )
+            normalized.append(n)
+        return tuple(normalized)
 
-        args_list = list(args)
-        tensors_to_diff = []
-        for idx in argnums_list:
-            arg = args_list[idx]
-            if is_tensor(arg):
-                arg.stop_gradient = False
-                tensors_to_diff.append(arg)
+    def grad_fn(*args, **kwargs):
+        argnums_norm = _validate_argnums(argnums, len(args))
+
+        # Flatten nested structures and track mapping
+        # flat_args: list of all tensors in order
+        # arg_to_flat: maps arg index -> list of flat indices
+        flat_args = []
+        arg_to_flat = []
+        for i, arg in enumerate(args):
+            if isinstance(arg, dict):
+                indices = []
+                for k in sorted(arg.keys()):
+                    indices.append(len(flat_args))
+                    flat_args.append(arg[k])
+                arg_to_flat.append(indices)
+            elif isinstance(arg, (list, tuple)):
+                indices = []
+                for v in arg:
+                    indices.append(len(flat_args))
+                    flat_args.append(v)
+                arg_to_flat.append(indices)
             else:
-                arg = convert_to_tensor(arg)
-                arg.stop_gradient = False
-                args_list[idx] = arg
-                tensors_to_diff.append(arg)
+                arg_to_flat.append([len(flat_args)])
+                flat_args.append(arg)
 
-        outputs = f(*args_list, **kwargs)
+        # Collect all flat indices that need gradients
+        tensors_to_diff = []
+        flat_idx_map = []  # maps position in tensors_to_diff -> flat index
+        for arg_idx in argnums_norm:
+            for flat_idx in arg_to_flat[arg_idx]:
+                arg = flat_args[flat_idx]
+                if is_tensor(arg):
+                    arg.stop_gradient = False
+                else:
+                    arg = convert_to_tensor(arg)
+                    arg.stop_gradient = False
+                    flat_args[flat_idx] = arg
+                tensors_to_diff.append(arg)
+                flat_idx_map.append(flat_idx)
+
+        # Reconstruct args for calling f (with tensors marked for grad)
+        call_args = []
+        for i, arg in enumerate(args):
+            if isinstance(arg, dict):
+                call_args.append(
+                    {
+                        k: flat_args[arg_to_flat[i][j]]
+                        for j, k in enumerate(sorted(arg.keys()))
+                    }
+                )
+            elif isinstance(arg, list):
+                call_args.append([flat_args[idx] for idx in arg_to_flat[i]])
+            elif isinstance(arg, tuple):
+                call_args.append(
+                    tuple(flat_args[idx] for idx in arg_to_flat[i])
+                )
+            else:
+                call_args.append(flat_args[arg_to_flat[i][0]])
+
+        # Forward pass
+        outputs = f(*call_args, **kwargs)
         if isinstance(outputs, (tuple, list)):
             outputs = outputs[0]
         if not is_tensor(outputs):
             outputs = convert_to_tensor(outputs)
 
         summed = paddle.sum(outputs)
-        grads_tuple = paddle.grad(
+        grads = paddle.grad(
             outputs=summed,
             inputs=tensors_to_diff,
             create_graph=False,
             retain_graph=False,
             allow_unused=True,
         )
-        if grads_tuple is None:
-            grads_tuple = [None] * len(tensors_to_diff)
+
+        # Convert None gradients to zeros
+        if grads is None:
+            grads = [None] * len(tensors_to_diff)
+        grads = [
+            g if g is not None else paddle.zeros_like(t)
+            for g, t in zip(grads, tensors_to_diff)
+        ]
+
+        # Map flat gradients back to argnums positions
+        flat_grad_map = dict(zip(flat_idx_map, grads))
+
+        # Build result for each argnums entry
+        results = []
+        for arg_idx in argnums_norm:
+            orig_arg = args[arg_idx]
+            flat_indices = arg_to_flat[arg_idx]
+            arg_grads = [flat_grad_map[idx] for idx in flat_indices]
+            if isinstance(orig_arg, dict):
+                results.append(
+                    {
+                        k: arg_grads[j]
+                        for j, k in enumerate(sorted(orig_arg.keys()))
+                    }
+                )
+            elif isinstance(orig_arg, list):
+                results.append(arg_grads)
+            elif isinstance(orig_arg, tuple):
+                results.append(tuple(arg_grads))
+            else:
+                results.append(arg_grads[0])
 
         if isinstance(argnums, int):
-            return grads_tuple[0]
-        return tuple(grads_tuple)
+            return results[0]
+        return tuple(results)
 
     return grad_fn
+
+
+def dtype(x):
+    return standardize_dtype(x.dtype)
+
+
+def _get_dtype_min_max(dtype):
+    if "bool" == dtype:
+        return 0, 1
+    if "int" in dtype:
+        info = ml_dtypes.iinfo(dtype)
+        return info.min, info.max
+    info = ml_dtypes.finfo(dtype)
+    return info.min, info.max
+
+
+def saturate_cast(x, dtype):
+    dtype = standardize_dtype(dtype)
+    x = convert_to_tensor(x)
+    in_dtype = standardize_dtype(x.dtype)
+    if in_dtype == dtype:
+        return x
+
+    in_min, in_max = _get_dtype_min_max(in_dtype)
+    out_min, out_max = _get_dtype_min_max(dtype)
+
+    min_limit = np.maximum(in_min, out_min).astype(in_dtype)
+    if min_limit < out_min:
+        min_limit = np.nextafter(min_limit, 0, dtype=in_dtype)
+    max_limit = np.minimum(in_max, out_max).astype(in_dtype)
+    if max_limit > out_max:
+        max_limit = np.nextafter(max_limit, 0, dtype=in_dtype)
+
+    x = paddle.clip(x, min_limit, max_limit)
+    return cast(x, dtype)
 
 
 def compute_output_spec(fn, *args, **kwargs):

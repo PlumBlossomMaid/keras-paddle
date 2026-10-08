@@ -1296,14 +1296,17 @@ def binary_crossentropy(target, output, from_logits=False):
             "Received: "
             f"target.shape={target.shape}, output.shape={output.shape}"
         )
-    if target.dtype != output.dtype:
-        target = paddle.cast(target, output.dtype)
-    # Paddle's CPU build registers no float16/bfloat16 kernel for `clip`
-    # or the BCE losses, so compute in float32 and cast back.
+    # Cross-entropy always computes in float; cast non-float inputs to
+    # float32 (matches numpy/JAX behavior where integer/bool outputs are
+    # promoted to float before the loss computation).
     orig_dtype = output.dtype
-    if needs_reduced_precision_upcast(output):
+    orig_dtype_str = backend.standardize_dtype(orig_dtype)
+    compute_in_float32 = orig_dtype_str not in ("float32", "float64")
+    if compute_in_float32:
         target = target.cast("float32")
         output = output.cast("float32")
+    elif target.dtype != output.dtype:
+        target = paddle.cast(target, output.dtype)
     if from_logits:
         result = F.binary_cross_entropy_with_logits(
             output, target, reduction="none"
@@ -1312,6 +1315,9 @@ def binary_crossentropy(target, output, from_logits=False):
         epsilon = backend.epsilon()
         output = paddle.clip(output, min=epsilon, max=1.0 - epsilon)
         result = F.binary_cross_entropy(output, target, reduction="none")
+    if compute_in_float32:
+        # Keep float32 output for non-float inputs (matches numpy/JAX)
+        return result
     return result.cast(to_paddle_dtype(orig_dtype))
 
 
@@ -1538,3 +1544,13 @@ def normalize(x, axis=-1, order=2, epsilon=None):
     norm = paddle.linalg.norm(x, p=order, axis=axis, keepdim=True)
     denom = paddle.maximum(norm, paddle.to_tensor(epsilon))
     return paddle.divide(x, denom)
+
+
+def polar(abs_, angle):
+    abs_ = convert_to_tensor(abs_)
+    angle = convert_to_tensor(angle)
+    real = abs_ * paddle.cos(angle)
+    imag = abs_ * paddle.sin(angle)
+    from keras_paddle.src.ops.math import _get_complex_tensor_from_tuple
+
+    return _get_complex_tensor_from_tuple((real, imag))
