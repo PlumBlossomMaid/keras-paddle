@@ -899,6 +899,10 @@ def argmin(x, axis=None, keepdims=False):
 
 def argsort(x, axis=-1):
     x = convert_to_tensor(x)
+    # numpy flattens 0-d input to (1,) before argsort
+    if x.ndim == 0:
+        x = x.reshape([1])
+        axis = 0
     if axis is None:
         axis = -1
         x = x.reshape([-1])
@@ -2789,12 +2793,16 @@ def unique(
 def unravel_index(indices, shape):
     orig_indices = convert_to_tensor(indices)
     orig_dtype = orig_indices.dtype
+    orig_ndim = orig_indices.ndim
     indices = orig_indices.cast("int64")
     result = []
     for s in reversed(shape):
         result.append((indices % s).cast("int32"))
         indices = indices // s
     result = list(reversed(result))
+    # numpy returns 0-d arrays for 0-d input; ensure we match
+    if orig_ndim == 0:
+        result = [r.reshape([]) for r in result]
     # Cast back to original dtype
     return tuple(r.cast(orig_dtype) for r in result)
 
@@ -3035,6 +3043,9 @@ def quantile(x, q, axis=None, method="linear", keepdims=False):
     result = paddle.quantile(
         x, q, axis=axis, keepdim=keepdims, interpolation=method
     )
+    # paddle.quantile loses q's dimension when axis=None and keepdims=False
+    if axis is None and not keepdims and q.ndim > 0 and result.ndim == 0:
+        result = result.reshape(q.shape)
     if needs_cast:
         result = result.cast(orig_dtype)
     return result
