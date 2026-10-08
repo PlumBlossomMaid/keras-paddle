@@ -285,6 +285,10 @@ def grad(f, argnums=0):
     return grad_fn
 
 
+def dtype(x):
+    return standardize_dtype(x.dtype)
+
+
 def _get_dtype_min_max(dtype):
     if "bool" == dtype:
         return 0, 1
