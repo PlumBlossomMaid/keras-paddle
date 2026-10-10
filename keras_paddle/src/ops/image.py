@@ -62,6 +62,7 @@ def _reflect_index_fixer(index, size):
         _mirror_index_fixer(2 * index + 1, 2 * size + 1) - 1, 2
     )
 
+
 _INDEX_FIXERS = {
     # Out-of-bound indices are handled after the fixer for `constant`
     # and `nearest`, so both just clip here.
@@ -69,7 +70,8 @@ _INDEX_FIXERS = {
     "nearest": lambda index, size: paddle.clip(index, 0, size - 1),
     "wrap": lambda index, size: index % size,
     "mirror": _mirror_index_fixer,
-    "reflect": _reflect_index_fixer,}
+    "reflect": _reflect_index_fixer,
+}
 
 
 def _is_integer(dtype):
@@ -607,6 +609,7 @@ def affine_transform(
     if need_squeeze:
         affined = affined.squeeze(0)
     return affined.cast(to_paddle_dtype(input_dtype))
+
 
 def rgb_to_hsv(images, data_format=None):
     # Ref: dm_pix
